@@ -24,9 +24,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-storage-azcopy/v10/jobsAdmin"
 	"runtime"
 	"sync/atomic"
+
+	"github.com/Azure/azure-storage-azcopy/v10/jobsAdmin"
+	"github.com/Azure/azure-storage-blob-go/azblob"
 
 	"github.com/Azure/azure-pipeline-go/pipeline"
 
@@ -115,6 +117,17 @@ func (cca *cookedSyncCmdArgs) initEnumerator(ctx context.Context) (enumerator *s
 	//includeRegex
 	filters = append(filters, buildRegexFilters(cca.includeRegex, true)...)
 	filters = append(filters, buildRegexFilters(cca.excludeRegex, false)...)
+
+	//ExcludeBLobType
+	if len(cca.excludeBlobType) != 0 {
+		excludeSet := map[azblob.BlobType]bool{}
+
+		for _, v := range cca.excludeBlobType {
+			excludeSet[v]= true
+		}
+
+		filters = append(filters, &excludeBlobTypeFilter{blobTypes: excludeSet})
+	}
 
 	// after making all filters, log any search prefix computed from them
 	if jobsAdmin.JobsAdmin != nil {

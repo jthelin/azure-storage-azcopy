@@ -24,10 +24,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/azure-storage-azcopy/v10/jobsAdmin"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/Azure/azure-storage-azcopy/v10/jobsAdmin"
+	"github.com/Azure/azure-storage-blob-go/azblob"
 
 	"github.com/Azure/azure-pipeline-go/pipeline"
 
@@ -56,6 +58,7 @@ type rawSyncCmdArgs struct {
 	legacyExclude         string // for warning messages only
 	includeRegex          string
 	excludeRegex          string
+	excludeBlobType       string
 
 	preservePermissions    bool
 	preserveSMBPermissions bool // deprecated and synonymous with preservePermissions
@@ -328,6 +331,17 @@ func (raw *rawSyncCmdArgs) cook() (cookedSyncCmdArgs, error) {
 
 	cooked.includeRegex = raw.parsePatterns(raw.includeRegex)
 	cooked.excludeRegex = raw.parsePatterns(raw.excludeRegex)
+			// Split the string using delimiter ';' and parse the individual blobType
+	blobTypes := strings.Split(raw.excludeBlobType, ";")
+	for _, blobType := range blobTypes {
+		var eBlobType common.BlobType
+		err := eBlobType.Parse(blobType)
+		if err != nil {
+			return cooked, fmt.Errorf("error parsing the exclude-blob-type %s provided with exclude-blob-type flag ", blobType)
+		}
+		cooked.excludeBlobType = append(cooked.excludeBlobType, eBlobType.ToAzBlobType())
+	}
+	
 
 	cooked.dryrunMode = raw.dryrun
 
@@ -369,6 +383,7 @@ type cookedSyncCmdArgs struct {
 	excludeFileAttributes []string
 	includeRegex          []string
 	excludeRegex          []string
+	excludeBlobType       []azblob.BlobType
 
 	// options
 	preservePermissions common.PreservePermissionsOption
@@ -756,6 +771,8 @@ func init() {
 	syncCmd.PersistentFlags().StringVar(&raw.excludeFileAttributes, "exclude-attributes", "", "(Windows only) Exclude files whose attributes match the attribute list. For example: A;S;R")
 	syncCmd.PersistentFlags().StringVar(&raw.includeRegex, "include-regex", "", "Include the relative path of the files that match with the regular expressions. Separate regular expressions with ';'.")
 	syncCmd.PersistentFlags().StringVar(&raw.excludeRegex, "exclude-regex", "", "Exclude the relative path of the files that match with the regular expressions. Separate regular expressions with ';'.")
+	syncCmd.PersistentFlags().StringVar(&raw.excludeBlobType, "exclude-blob-type", "", "Optionally specifies the type of blob (BlockBlob/ PageBlob/ AppendBlob) to exclude when copying blobs from the container "+
+		"or the account. Use of this flag is not applicable for copying data from non azure-service to service. More than one blob should be separated by ';'. ")
 	syncCmd.PersistentFlags().StringVar(&raw.logVerbosity, "log-level", "INFO", "Define the log verbosity for the log file, available levels: INFO(all requests and responses), WARNING(slow responses), ERROR(only failed requests), and NONE(no output logs). (default INFO).")
 	syncCmd.PersistentFlags().StringVar(&raw.deleteDestination, "delete-destination", "false", "Defines whether to delete extra files from the destination that are not present at the source. Could be set to true, false, or prompt. "+
 		"If set to prompt, the user will be asked a question before scheduling files and blobs for deletion. (default 'false').")

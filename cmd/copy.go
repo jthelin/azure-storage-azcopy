@@ -1357,7 +1357,6 @@ func (cca *CookedCopyCmdArgs) processCopyJobPartOrders() (err error) {
 		AutoDecompress:  cca.autoDecompress,
 		Priority:        common.EJobPriority.Normal(),
 		LogLevel:        cca.LogVerbosity,
-		ExcludeBlobType: cca.excludeBlobType,
 		BlobAttributes: common.BlobTransferAttributes{
 			BlobType:                 cca.blobType,
 			BlockSizeInBytes:         cca.blockSize,
